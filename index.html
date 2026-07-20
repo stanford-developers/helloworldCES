@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SWS Response Assistant</title>
+<style>
+  :root {
+    --cardinal: #8C1515;
+    --cardinal-dark: #6B0F0F;
+    --cardinal-light: #B83A3A;
+    --cardinal-bg: #FDF6F6;
+    --border: #e5e7eb;
+    --text: #1a1a1a;
+    --muted: #6b7280;
+    --bg: #f8f9fa;
+    --white: #ffffff;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+
+  .header { background: var(--cardinal); color: white; padding: 14px 24px; display: flex; align-items: center; gap: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .header-logo { font-size: 22px; }
+  .header-title { font-size: 17px; font-weight: 700; }
+  .header-subtitle { font-size: 12px; opacity: 0.8; margin-top: 1px; }
+
+  .tabs { background: var(--white); border-bottom: 2px solid var(--border); display: flex; padding: 0 24px; }
+  .tab-btn { padding: 12px 20px; font-size: 14px; font-weight: 600; color: var(--muted); border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
+  .tab-btn:hover { color: var(--cardinal); }
+  .tab-btn.active { color: var(--cardinal); border-bottom-color: var(--cardinal); }
+
+  .tab-content { display: none; padding: 24px; }
+  .tab-content.active { display: block; }
+  .two-col { display: grid; grid-template-columns: 1fr 340px; gap: 20px; }
+
+  .card { background: var(--white); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 16px; }
+  .card-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--cardinal); margin-bottom: 12px; }
+
+  .pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pill { padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 500; border: 1.5px solid var(--border); background: var(--white); color: var(--muted); cursor: pointer; transition: all 0.15s; }
+  .pill:hover { border-color: var(--cardinal-light); color: var(--cardinal); }
+  .pill.active { background: var(--cardinal); color: white; border-color: var(--cardinal); }
+
+  label { display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; }
+  textarea { width: 100%; border: 1.5px solid var(--border); border-radius: 8px; padding: 12px; font-size: 14px; font-family: inherit; color: var(--text); background: var(--white); resize: vertical; transition: border-color 0.15s; line-height: 1.5; }
+  textarea:focus { outline: none; border-color: var(--cardinal-light); box-shadow: 0 0 0 3px rgba(140,21,21,0.08); }
+  textarea::placeholder { color: #aaa; }
+
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; transition: background 0.15s; }
+  .btn-primary { background: var(--cardinal); color: white; }
+  .btn-primary:hover:not(:disabled) { background: var(--cardinal-dark); }
+  .btn-primary:disabled { background: #c4a0a0; cursor: not-allowed; }
+  .btn-secondary { background: var(--bg); color: var(--muted); border: 1.5px solid var(--border); font-size: 13px; padding: 7px 13px; }
+  .btn-secondary:hover { background: var(--border); color: var(--text); }
+  .btn-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+  .spinner { width: 15px; height: 15px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+  .btn.loading .spinner { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .response-card { background: var(--cardinal-bg); border: 1.5px solid #e8c5c5; border-radius: var(--radius); padding: 18px; margin-top: 16px; display: none; }
+  .response-card.visible { display: block; }
+  .response-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .response-label { font-size: 12px; font-weight: 700; color: var(--cardinal); text-transform: uppercase; letter-spacing: 0.06em; }
+  #responseOutput { font-size: 14px; line-height: 1.7; color: var(--text); white-space: pre-wrap; background: var(--white); border: 1px solid #e8c5c5; border-radius: 7px; padding: 14px; min-height: 60px; }
+
+  .template-list { display: flex; flex-direction: column; gap: 4px; }
+  .template-btn { text-align: left; padding: 8px 10px; border-radius: 6px; font-size: 13px; color: var(--text); background: none; border: 1px solid transparent; cursor: pointer; transition: all 0.1s; }
+  .template-btn:hover { background: var(--bg); border-color: var(--border); }
+
+  .ref-list { display: flex; flex-direction: column; gap: 4px; }
+  .ref-link { font-size: 13px; color: var(--cardinal); text-decoration: none; padding: 4px 0; border-bottom: 1px dotted transparent; }
+  .ref-link:hover { border-bottom-color: var(--cardinal); }
+  #scratchPad { height: 120px; font-size: 13px; }
+
+  .error-box { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #b91c1c; margin-top: 12px; display: none; }
+  .error-box.visible { display: block; }
+
+  .clarifier-wrap { max-width: 700px; }
+  #clarifyInput { height: 140px; }
+  .cl-result { margin-top: 20px; background: var(--white); border: 1.5px solid var(--border); border-radius: var(--radius); overflow: hidden; display: none; }
+  .cl-result.visible { display: block; }
+  .cl-section { padding: 14px 16px; border-bottom: 1px solid #f0f0f0; }
+  .cl-section:last-child { border-bottom: none; }
+  .cl-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .cl-label.red    { color: var(--cardinal); }
+  .cl-label.blue   { color: #0284c7; }
+  .cl-label.amber  { color: #b45309; }
+  .cl-label.green  { color: #15803d; }
+  .cl-label.purple { color: #7c3aed; }
+  .cl-text { font-size: 14px; color: var(--text); line-height: 1.6; }
+
+  .copy-btn { padding: 4px 10px; font-size: 12px; border-radius: 5px; border: 1px solid var(--border); background: var(--white); cursor: pointer; color: var(--muted); }
+  .copy-btn:hover { background: var(--bg); }
+
+  @media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* ── Rephrase Tab ── */
+  .rephrase-wrap { max-width: 700px; }
+  #rephrase-input { height: 110px; }
+  .rephrase-options { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+  .rephrase-option {
+    background: var(--white);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    transition: border-color 0.15s;
+  }
+  .rephrase-option:hover { border-color: var(--cardinal-light); }
+  .rephrase-tag {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    padding: 3px 8px;
+    border-radius: 99px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .tag-professional { background: #ede9fe; color: #6d28d9; }
+  .tag-concise      { background: #dbeafe; color: #1d4ed8; }
+  .tag-friendly     { background: #dcfce7; color: #15803d; }
+  .tag-direct       { background: #fef9c3; color: #854d0e; }
+  .rephrase-text { flex: 1; font-size: 14px; line-height: 1.6; color: var(--text); }
+  .rephrase-copy {
+    padding: 4px 10px;
+    font-size: 12px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: var(--white);
+    cursor: pointer;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .rephrase-copy:hover { background: var(--bg); }
+
+  /* ── Checklist Tab ── */
+  .checklist-wrap { max-width: 720px; }
+
+  .step-bar { display: flex; align-items: center; gap: 0; margin-bottom: 24px; }
+  .step { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .step-num { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; background: var(--white); }
+  .step.active .step-num { background: var(--cardinal); color: white; border-color: var(--cardinal); }
+  .step.done .step-num { background: #15803d; color: white; border-color: #15803d; }
+  .step.active { color: var(--cardinal); }
+  .step.done { color: #15803d; }
+  .step-line { flex: 1; height: 2px; background: var(--border); margin: 0 8px; min-width: 24px; }
+  .step-line.done { background: #15803d; }
+
+  .cl-section-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .cl-section-hint { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+
+  .qa-block { margin-bottom: 16px; }
+  .qa-question { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .qa-num { display: inline-block; width: 20px; height: 20px; border-radius: 50%; background: var(--cardinal); color: white; font-size: 11px; font-weight: 700; text-align: center; line-height: 20px; margin-right: 6px; }
+  .qa-answer { height: 68px; font-size: 13px; }
+
+  .progress-wrap { margin-bottom: 16px; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+  .progress-label span:last-child { color: var(--cardinal); }
+  .progress-track { height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--cardinal); border-radius: 99px; transition: width 0.3s ease; }
+  .progress-fill.done { background: #15803d; }
+
+  .checklist-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+  .checklist-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 8px; background: var(--white); border: 1.5px solid var(--border); transition: background 0.1s; }
+  .checklist-item:hover { border-color: #d0d0d0; }
+  .checklist-item.checked { background: #f0fdf4; border-color: #bbf7d0; }
+  .checklist-item input[type=checkbox] { width: 17px; height: 17px; margin-top: 2px; accent-color: var(--cardinal); cursor: pointer; flex-shrink: 0; }
+  .checklist-item .item-text { flex: 1; font-size: 14px; color: var(--text); line-height: 1.5; cursor: pointer; }
+  .checklist-item.checked .item-text { text-decoration: line-through; color: var(--muted); }
+  .checklist-item .del-btn { background: none; border: none; color: #ccc; font-size: 16px; cursor: pointer; padding: 0 2px; line-height: 1; flex-shrink: 0; }
+  .checklist-item .del-btn:hover { color: #ef4444; }
+
+  .add-item-row { display: flex; gap: 8px; margin-top: 8px; }
+  .add-item-row input { flex: 1; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; font-family: inherit; }
+  .add-item-row input:focus { outline: none; border-color: var(--cardinal-light); }
+  .add-item-row button { padding: 8px 14px; background: var(--cardinal); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .add-item-row button:hover { background: var(--cardinal-dark); }
+
+  .checklist-actions { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-logo">🌲</div>
+  <div>
+    <div class="header-title">SWS Response Assistant</div>
+    <div class="header-subtitle">UIT Web Services · Stanford University</div>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab-btn" onclick="switchTab('responder', this)">✨ Response Generator</button>
+  <button class="tab-btn" onclick="switchTab('clarifier', this)">🔍 Question Clarifier</button>
+  <button class="tab-btn active" onclick="switchTab('checklist', this)">✅ Task Checklist</button>
+  <button class="tab-btn" onclick="switchTab('rephrase', this)">✏️ Rephrase</button>
+</div>
+
+<!-- TAB 1: Response Generator -->
+<div id="tab-responder" class="tab-content">
+  <div class="two-col">
+    <div class="main-col">
+      <div class="card">
+        <div class="card-title">Ticket Type</div>
+        <div class="pill-row">
+          <button class="pill active" data-type="General" onclick="selectType(this)">General</button>
+          <button class="pill" data-type="Stanford Sites (Drupal)" onclick="selectType(this)">Stanford Sites (Drupal)</button>
+          <button class="pill" data-type="WordPress" onclick="selectType(this)">WordPress</button>
+          <button class="pill" data-type="Redirect / DNS" onclick="selectType(this)">Redirect / DNS</button>
+          <button class="pill" data-type="Site Access / Permissions" onclick="selectType(this)">Site Access / Permissions</button>
+          <button class="pill" data-type="Custom Development" onclick="selectType(this)">Custom Development</button>
+          <button class="pill" data-type="New Site Request" onclick="selectType(this)">New Site Request</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Customer Message</div>
+        <label for="customerMsg">Paste the customer's ticket message</label>
+        <textarea id="customerMsg" rows="6" placeholder="Paste the customer's question or request here…"></textarea>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="generateBtn" onclick="generateResponse()">
+            <div class="spinner" id="genSpinner"></div>
+            <span id="generateBtnText">✨ Generate Response</span>
+          </button>
+          <button class="btn btn-secondary" onclick="clearResponder()">Clear</button>
+        </div>
+        <div class="error-box" id="genError"></div>
+      </div>
+      <div class="response-card" id="responseCard">
+        <div class="response-header">
+          <div class="response-label">📝 Draft Response</div>
+          <button class="copy-btn" onclick="copyResponse()">Copy</button>
+        </div>
+        <div id="responseOutput"></div>
+      </div>
+    </div>
+    <div class="side-col">
+      <div class="card">
+        <div class="card-title">Quick Templates</div>
+        <div class="template-list">
+          <button class="template-btn" onclick="applyTemplate('ack')">👋 Acknowledgement</button>
+          <button class="template-btn" onclick="applyTemplate('needinfo')">❓ Need More Info</button>
+          <button class="template-btn" onclick="applyTemplate('resolved')">✅ Resolved / Closing</button>
+          <button class="template-btn" onclick="applyTemplate('escalate')">🔁 Escalating</button>
+          <button class="template-btn" onclick="applyTemplate('notsupported')">🚫 Out of Scope</button>
+          <button class="template-btn" onclick="applyTemplate('wp-nosupport')">WordPress: Not Supported</button>
+          <button class="template-btn" onclick="applyTemplate('wp-plugin')">WordPress: Plugin Help</button>
+          <button class="template-btn" onclick="applyTemplate('wp-hosting')">WordPress: Hosting Options</button>
+          <button class="template-btn" onclick="applyTemplate('wp-migration')">WordPress: Migration</button>
+          <button class="template-btn" onclick="applyTemplate('drupal-access')">Drupal: Site Access</button>
+          <button class="template-btn" onclick="applyTemplate('redirect')">Redirect Request</button>
+          <button class="template-btn" onclick="applyTemplate('newsite')">New Stanford Site</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">SWS References</div>
+        <div class="ref-list">
+          <a class="ref-link" href="https://uit.stanford.edu/service/web" target="_blank">UIT Web Services Home</a>
+          <a class="ref-link" href="https://stanford.service-now.com" target="_blank">ServiceNow</a>
+          <a class="ref-link" href="https://uit.stanford.edu/service/web/stanford-sites" target="_blank">Stanford Sites (Drupal)</a>
+          <a class="ref-link" href="https://uit.stanford.edu/service/web/wordpress" target="_blank">WordPress at Stanford</a>
+          <a class="ref-link" href="https://uit.stanford.edu/service/hosting" target="_blank">Hosting Options</a>
+          <a class="ref-link" href="https://uit.stanford.edu/service/web/redirect" target="_blank">Redirect Requests</a>
+          <a class="ref-link" href="https://uit.stanford.edu/service/dnsnames" target="_blank">DNS / Domain Names</a>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Scratch Pad</div>
+        <textarea id="scratchPad" placeholder="Notes, ticket numbers, follow-up items…"></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 2: Question Clarifier -->
+<div id="tab-clarifier" class="tab-content">
+  <div class="clarifier-wrap">
+    <div class="card">
+      <div class="card-title">Question Clarifier</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Paste a customer's message and get a clear breakdown of what they're actually asking.</p>
+      <label for="clarifyInput">Customer Message</label>
+      <textarea id="clarifyInput" placeholder="Paste the customer's question or message here…"></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="clarifyBtn" onclick="runClarifier()">
+          <div class="spinner" id="clarifySpinner"></div>
+          <span id="clarifyBtnText">🔍 Clarify Question</span>
+        </button>
+        <button class="btn btn-secondary" onclick="clearClarifier()">Clear</button>
+      </div>
+      <div class="error-box" id="clarifyError"></div>
+    </div>
+    <div class="cl-result" id="clarifierResult">
+      <div class="cl-section"><div class="cl-label red">✦ What they're asking</div><div class="cl-text" id="cl-coreAsk"></div></div>
+      <div class="cl-section"><div class="cl-label blue">📋 Key details</div><div class="cl-text" id="cl-keyDetails"></div></div>
+      <div class="cl-section"><div class="cl-label amber">⚠️ Potential ambiguities</div><div class="cl-text" id="cl-ambiguities"></div></div>
+      <div class="cl-section"><div class="cl-label green">✅ Plain-language summary</div><div class="cl-text" id="cl-plainSummary"></div></div>
+      <div class="cl-section"><div class="cl-label purple">→ Suggested next step</div><div class="cl-text" id="cl-nextStep"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 3: Task Checklist -->
+<div id="tab-checklist" class="tab-content active">
+  <div class="checklist-wrap">
+
+    <!-- Step indicator -->
+    <div class="step-bar">
+      <div class="step active" id="step1-indicator">
+        <div class="step-num">1</div><span>Describe task</span>
+      </div>
+      <div class="step-line" id="line1"></div>
+      <div class="step" id="step2-indicator">
+        <div class="step-num">2</div><span>Answer questions</span>
+      </div>
+      <div class="step-line" id="line2"></div>
+      <div class="step" id="step3-indicator">
+        <div class="step-num">3</div><span>Work through checklist</span>
+      </div>
+    </div>
+
+    <!-- Step 1: Describe task -->
+    <div id="cl-step1">
+      <div class="card">
+        <div class="cl-section-title">What are you working on?</div>
+        <div class="cl-section-hint">Describe the task or ticket — be as brief or detailed as you want.</div>
+        <textarea id="cl-taskDesc" rows="4" placeholder="e.g. Setting up a new Stanford Sites page for the Engineering department, or responding to a redirect request for iwshm2025.sites.stanford.edu…"></textarea>
+
+        <div style="margin-top:16px;">
+          <div class="cl-section-title" style="font-size:13px;">Any existing docs or SOPs? <span style="font-weight:400;color:var(--muted)">(optional)</span></div>
+          <div class="cl-section-hint" style="margin-bottom:8px;">Paste in any process notes, Confluence pages, or past examples. The checklist will incorporate them.</div>
+          <textarea id="cl-sopDocs" rows="3" placeholder="Paste relevant docs, process notes, or SOPs here (optional)…"></textarea>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" id="cl-getQBtn" onclick="clGetQuestions()">
+            <div class="spinner" id="cl-q-spinner"></div>
+            <span id="cl-getQBtnText">Get clarifying questions →</span>
+          </button>
+        </div>
+        <div class="error-box" id="cl-step1-error"></div>
+      </div>
+    </div>
+
+    <!-- Step 2: Q&A -->
+    <div id="cl-step2" style="display:none;">
+      <div class="card">
+        <div class="cl-section-title">A few quick questions</div>
+        <div class="cl-section-hint">Answer these so the checklist is tailored to your specific situation. Skip any that don't apply.</div>
+        <div id="cl-qa-blocks"></div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="cl-genBtn" onclick="clGenerateChecklist()">
+            <div class="spinner" id="cl-gen-spinner"></div>
+            <span id="cl-genBtnText">Generate checklist →</span>
+          </button>
+          <button class="btn btn-secondary" onclick="clReset()">Start over</button>
+        </div>
+        <div class="error-box" id="cl-step2-error"></div>
+      </div>
+    </div>
+
+    <!-- Step 3: Checklist -->
+    <div id="cl-step3" style="display:none;">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+          <div>
+            <div class="cl-section-title" id="cl-checklist-title">Checklist</div>
+            <div class="cl-section-hint" style="margin-bottom:0;" id="cl-checklist-subtitle"></div>
+          </div>
+          <button class="btn btn-secondary" onclick="clReset()" style="flex-shrink:0;">Start over</button>
+        </div>
+
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span>Progress</span>
+            <span id="cl-progress-text">0 / 0 done</span>
+          </div>
+          <div class="progress-track"><div class="progress-fill" id="cl-progress-fill" style="width:0%"></div></div>
+        </div>
+
+        <div class="checklist-list" id="cl-checklist-list"></div>
+
+        <div class="add-item-row">
+          <input type="text" id="cl-new-item" placeholder="Add a step…" onkeydown="if(event.key==='Enter') clAddItem()" />
+          <button onclick="clAddItem()">+ Add</button>
+        </div>
+
+        <div class="checklist-actions">
+          <button class="btn btn-secondary" onclick="clCopyChecklist()">Copy as text</button>
+          <button class="btn btn-secondary" onclick="clCheckAll()">Check all</button>
+          <button class="btn btn-secondary" onclick="clUncheckAll()">Uncheck all</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TAB 4: Rephrase -->
+<div id="tab-rephrase" class="tab-content">
+  <div class="rephrase-wrap">
+    <div class="card">
+      <div class="card-title">Rephrase</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Paste a sentence or paragraph and get 4 versions to choose from — professional, concise, friendly, and direct.</p>
+      <label for="rephrase-input">Text to rephrase</label>
+      <textarea id="rephrase-input" placeholder="Paste the sentence or paragraph you want to rephrase…"></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="rephraseBtn" onclick="runRephrase()">
+          <div class="spinner" id="rephrase-spinner"></div>
+          <span id="rephraseBtnText">✏️ Rephrase</span>
+        </button>
+        <button class="btn btn-secondary" onclick="clearRephrase()">Clear</button>
+      </div>
+      <div class="error-box" id="rephrase-error"></div>
+    </div>
+    <div class="rephrase-options" id="rephrase-options" style="display:none;"></div>
+  </div>
+</div>
+
+<script>
+// ── Claude via Cowork ────────────────────────────
+function extractClaudeText(result) {
+  if (typeof result === 'string') return result;
+  if (Array.isArray(result)) {
+    const first = result[0];
+    if (typeof first === 'string') return first;
+    if (first && first.text) return String(first.text);
+    if (first && first.content) return String(first.content);
+  }
+  if (result && typeof result === 'object') {
+    if (result.text) return String(result.text);
+    if (result.content) {
+      if (typeof result.content === 'string') return result.content;
+      if (Array.isArray(result.content) && result.content[0]) {
+        return result.content[0].text || String(result.content[0]);
+      }
+    }
+    if (result.response) return String(result.response);
+    if (result.completion) return String(result.completion);
+    if (result.message) return String(result.message);
+    return JSON.stringify(result);
+  }
+  return String(result);
+}
+
+async function callClaude(systemPrompt, userMessage) {
+  if (!window.cowork || !window.cowork.askClaude) {
+    throw new Error('This tool requires the Cowork environment. Please open it as a Cowork artifact.');
+  }
+  const result = await window.cowork.askClaude(systemPrompt + '\n\n' + userMessage, []);
+  return extractClaudeText(result);
+}
+
+// ── Tabs ─────────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Ticket type ───────────────────────────────────
+let currentType = 'General';
+function selectType(pill) {
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+  currentType = pill.dataset.type;
+}
+function smartMatch(msg) {
+  const m = msg.toLowerCase();
+  if (m.includes('wordpress') || m.includes('wp-')) return 'WordPress';
+  if (m.includes('drupal') || m.includes('stanford sites')) return 'Stanford Sites (Drupal)';
+  if (m.includes('redirect') || m.includes('dns') || m.includes('domain') || m.includes('cname')) return 'Redirect / DNS';
+  if (m.includes('access') || m.includes('permission') || m.includes('login') || m.includes('editor')) return 'Site Access / Permissions';
+  if (m.includes('new site') || m.includes('create a site')) return 'New Site Request';
+  if (m.includes('custom') || m.includes('develop') || m.includes('build')) return 'Custom Development';
+  return null;
+}
+
+// ── Templates ─────────────────────────────────────
+const TEMPLATES = {
+  ack: `Hi [Name],\n\nThank you for reaching out to UIT Web Services! I've received your request and will look into it shortly.\n\nIf you have any additional details to share, feel free to reply to this ticket.\n\nBest,\n[Your Name] | UIT Web Services`,
+  needinfo: `Hi [Name],\n\nThanks for contacting UIT Web Services. To help you with this request, I have a few follow-up questions:\n\n1. [Question 1]\n2. [Question 2]\n\nOnce I have this information, I'll be able to assist you further.\n\nBest,\n[Your Name] | UIT Web Services`,
+  resolved: `Hi [Name],\n\nI'm glad we were able to resolve this for you! I'll go ahead and close this ticket.\n\nIf you run into any further issues, please don't hesitate to open a new ticket.\n\nBest,\n[Your Name] | UIT Web Services`,
+  escalate: `Hi [Name],\n\nThanks for your patience. I'm going to loop in a colleague who specializes in this area to make sure you get the best help possible.\n\nWe'll follow up with you shortly.\n\nBest,\n[Your Name] | UIT Web Services`,
+  notsupported: `Hi [Name],\n\nThank you for reaching out! Unfortunately, this request falls outside the scope of UIT Web Services' supported services.\n\nFor this type of request, you may want to reach out to [recommended resource or team].\n\nBest,\n[Your Name] | UIT Web Services`,
+  'wp-nosupport': `Hi [Name],\n\nThanks for reaching out! Unfortunately, UIT Web Services does not provide support for self-hosted WordPress installations. Our team supports Stanford Sites (built on Drupal), which is Stanford's managed web platform.\n\nIf you'd like to learn more about migrating to Stanford Sites, I'm happy to share more information.\n\nBest,\n[Your Name] | UIT Web Services`,
+  'wp-plugin': `Hi [Name],\n\nFor WordPress plugin questions, our team is limited in the support we can provide for self-hosted WordPress sites.\n\nI'd recommend checking:\n- The plugin's official documentation\n- The WordPress.org support forum for that plugin\n\nLet me know if there's anything else I can help with!\n\nBest,\n[Your Name] | UIT Web Services`,
+  'wp-hosting': `Hi [Name],\n\nStanford provides several web hosting options:\n\n- Stanford Sites (Drupal): Stanford's managed CMS — fully supported, no hosting fees\n- Self-managed hosting: available for some departments\n\nIf you're interested in Stanford Sites as an alternative, I'm happy to walk you through what's available.\n\nBest,\n[Your Name] | UIT Web Services`,
+  'wp-migration': `Hi [Name],\n\nWe'd be glad to explore migration options with you. Stanford Sites (our Drupal-based platform) is a popular choice — it's fully managed and there's no hosting cost.\n\nTo get started, it would help to know:\n- URL of your existing site\n- What kind of content you host\n- Any specific functionality you rely on\n\nBest,\n[Your Name] | UIT Web Services`,
+  'drupal-access': `Hi [Name],\n\nTo add or update a user's role on your Stanford Sites (Drupal) site, a current site administrator can:\n\n1. Log in and go to People (/admin/people)\n2. Find the user (or invite them by SUNet ID)\n3. Assign the appropriate role (Editor, Content Manager, Administrator, etc.)\n\nIf you're locked out, let us know the site URL and we can help.\n\nBest,\n[Your Name] | UIT Web Services`,
+  redirect: `Hi [Name],\n\nTo process this redirect, I'll need:\n\n1. Source URL (redirect FROM)\n2. Destination URL (redirect TO)\n3. Type: permanent (301) or temporary (302) — if unsure, permanent is usually correct\n\nOnce confirmed, I'll get this set up for you.\n\nBest,\n[Your Name] | UIT Web Services`,
+  newsite: `Hi [Name],\n\nThanks for reaching out about setting up a new site. To get started, I'll need:\n\n1. Preferred site URL (e.g., yourproject.stanford.edu)\n2. Brief description of the site's purpose\n3. Your SUNet ID\n\nOnce we have this, we can provision your site.\n\nBest,\n[Your Name] | UIT Web Services`
+};
+
+function applyTemplate(key) {
+  const tpl = TEMPLATES[key];
+  if (!tpl) return;
+  document.getElementById('responseCard').style.display = 'block';
+  document.getElementById('responseCard').classList.add('visible');
+  document.getElementById('responseOutput').textContent = tpl;
+}
+function copyResponse() {
+  navigator.clipboard.writeText(document.getElementById('responseOutput').textContent).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  });
+}
+function clearResponder() {
+  document.getElementById('customerMsg').value = '';
+  document.getElementById('responseCard').style.display = 'none';
+  document.getElementById('genError').classList.remove('visible');
+}
+
+// ── Response Generator (AI) ───────────────────────
+const SWS_SYSTEM = `You are a support agent for UIT Web Services (SWS) at Stanford University. You help answer ServiceNow tickets about Stanford Sites (Drupal), custom web development, WordPress (not supported — route to Stanford Sites or community resources), redirects/DNS, site access, and general web services. Responses must be professional, warm, concise, and signed as [Your name] / UIT Web Services. Plain text only, no markdown.`;
+
+async function generateResponse() {
+  const msg = document.getElementById('customerMsg').value.trim();
+  if (!msg) return;
+  const btn = document.getElementById('generateBtn');
+  const btnText = document.getElementById('generateBtnText');
+  const errorEl = document.getElementById('genError');
+  btn.disabled = true; btn.classList.add('loading'); btnText.textContent = 'Generating…';
+  errorEl.classList.remove('visible');
+  const det = smartMatch(msg);
+  if (det && det !== currentType) { const p = document.querySelector(`[data-type="${det}"]`); if (p) selectType(p); }
+  try {
+    const text = await callClaude(SWS_SYSTEM, `Ticket type: ${currentType}\n\nCustomer message:\n"""\n${msg}\n"""\n\nWrite a professional, helpful ServiceNow ticket response. Plain text only.`);
+    document.getElementById('responseCard').style.display = 'block';
+    document.getElementById('responseCard').classList.add('visible');
+    document.getElementById('responseOutput').textContent = text;
+    document.getElementById('responseCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch (err) {
+    errorEl.textContent = err.message || 'Could not generate response. Please try again.';
+    errorEl.classList.add('visible');
+  } finally {
+    btn.disabled = false; btn.classList.remove('loading'); btnText.textContent = '✨ Generate Response';
+  }
+}
+
+// ── Question Clarifier (AI) ───────────────────────
+const CL_SYSTEM = `You are helping a Stanford UIT Web Services support agent understand a customer ticket before responding.
+
+Analyze the customer message and reply using EXACTLY this format with these exact section headers:
+
+WHAT THEY'RE ASKING:
+[one sentence summary of the core request]
+
+KEY DETAILS:
+[bullet points of relevant context — URLs, names, dates, technical details. Use • for each bullet.]
+
+AMBIGUITIES:
+[anything unclear or open to misinterpretation. If none, write: None identified.]
+
+PLAIN SUMMARY:
+[2-3 sentence plain-English restatement as if briefing a colleague]
+
+NEXT STEP:
+[one concise recommended action for the support agent]`;
+
+function parseSection(text, header) {
+  const re = new RegExp(header + ':\\s*([\\s\\S]*?)(?=\\n[A-Z][A-Z ]+:|$)', 'i');
+  const m = text.match(re);
+  return m ? m[1].trim() : '—';
+}
+
+async function runClarifier() {
+  const input = document.getElementById('clarifyInput').value.trim();
+  if (!input) return;
+  const btn = document.getElementById('clarifyBtn');
+  const btnText = document.getElementById('clarifyBtnText');
+  const errorEl = document.getElementById('clarifyError');
+  const result = document.getElementById('clarifierResult');
+  btn.disabled = true; btn.classList.add('loading'); btnText.textContent = 'Analyzing…';
+  errorEl.classList.remove('visible'); result.classList.remove('visible');
+  try {
+    const raw = await callClaude(CL_SYSTEM, `Customer message:\n"""\n${input}\n"""`);
+    document.getElementById('cl-coreAsk').textContent = parseSection(raw, "WHAT THEY'RE ASKING");
+    document.getElementById('cl-keyDetails').innerHTML = parseSection(raw, 'KEY DETAILS').replace(/\n/g, '<br>');
+    document.getElementById('cl-ambiguities').textContent = parseSection(raw, 'AMBIGUITIES');
+    document.getElementById('cl-plainSummary').textContent = parseSection(raw, 'PLAIN SUMMARY');
+    document.getElementById('cl-nextStep').textContent = parseSection(raw, 'NEXT STEP');
+    result.classList.add('visible');
+  } catch (err) {
+    errorEl.textContent = err.message || 'Could not analyze question. Please try again.';
+    errorEl.classList.add('visible');
+  } finally {
+    btn.disabled = false; btn.classList.remove('loading'); btnText.textContent = '🔍 Clarify Question';
+  }
+}
+
+function clearClarifier() {
+  document.getElementById('clarifyInput').value = '';
+  document.getElementById('clarifierResult').classList.remove('visible');
+  document.getElementById('clarifyError').classList.remove('visible');
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    const active = document.querySelector('.tab-content.active').id;
+    if (active === 'tab-responder') generateResponse();
+    if (active === 'tab-clarifier') runClarifier();
+  }
+});
+
+// ── Task Checklist ────────────────────────────────
+let clItems = [];
+let clItemId = 0;
+
+const CL_TASK_SYSTEM = `You are a process expert for UIT Web Services (SWS) at Stanford University. You help support agents make sure they complete tasks fully and correctly. SWS handles: Stanford Sites (Drupal CMS), custom web development, WordPress inquiries (not supported — route to Stanford Sites), web redirects and DNS, site access/permissions, and new site provisioning.`;
+
+async function clGetQuestions() {
+  const task = document.getElementById('cl-taskDesc').value.trim();
+  if (!task) return;
+  const btn = document.getElementById('cl-getQBtn');
+  const btnText = document.getElementById('cl-getQBtnText');
+  const errorEl = document.getElementById('cl-step1-error');
+  btn.disabled = true; btn.classList.add('loading'); btnText.textContent = 'Thinking…';
+  errorEl.classList.remove('visible');
+  const sop = document.getElementById('cl-sopDocs').value.trim();
+  try {
+    const prompt = `${CL_TASK_SYSTEM}
+
+A support agent is working on the following task:
+"""
+${task}
+"""
+${sop ? `\nThey also provided this context/SOP:\n"""\n${sop}\n"""` : ''}
+
+Generate exactly 3 short clarifying questions that would help you build a more accurate, tailored checklist for this task. The questions should uncover specifics you don't already know — like the site URL, whether it's a first-time setup or update, who the requester is, any deadlines, etc.
+
+Reply using EXACTLY this format:
+Q1: [question]
+Q2: [question]
+Q3: [question]`;
+
+    const raw = await callClaude('', prompt);
+    const qs = [];
+    const lines = raw.split('\n');
+    for (const line of lines) {
+      const m = line.match(/^Q\d+:\s*(.+)/i);
+      if (m) qs.push(m[1].trim());
+    }
+    if (qs.length === 0) throw new Error('Could not generate questions. Please try again.');
+
+    // Render Q&A blocks
+    const container = document.getElementById('cl-qa-blocks');
+    container.innerHTML = '';
+    qs.forEach((q, i) => {
+      container.innerHTML += `
+        <div class="qa-block">
+          <div class="qa-question"><span class="qa-num">${i + 1}</span>${q}</div>
+          <textarea class="qa-answer" id="cl-ans-${i}" placeholder="Your answer (or leave blank to skip)…"></textarea>
+        </div>`;
+    });
+
+    // Store question count for later
+    container.dataset.qcount = qs.length;
+
+    // Transition to step 2
+    document.getElementById('cl-step1').style.display = 'none';
+    document.getElementById('cl-step2').style.display = 'block';
+    clSetStep(2);
+  } catch (err) {
+    errorEl.textContent = err.message || 'Something went wrong. Please try again.';
+    errorEl.classList.add('visible');
+  } finally {
+    btn.disabled = false; btn.classList.remove('loading'); btnText.textContent = 'Get clarifying questions →';
+  }
+}
+
+async function clGenerateChecklist() {
+  const btn = document.getElementById('cl-genBtn');
+  const btnText = document.getElementById('cl-genBtnText');
+  const errorEl = document.getElementById('cl-step2-error');
+  btn.disabled = true; btn.classList.add('loading'); btnText.textContent = 'Building checklist…';
+  errorEl.classList.remove('visible');
+
+  const task = document.getElementById('cl-taskDesc').value.trim();
+  const sop = document.getElementById('cl-sopDocs').value.trim();
+  const container = document.getElementById('cl-qa-blocks');
+  const qcount = parseInt(container.dataset.qcount || '0');
+
+  // Collect Q&A pairs
+  let qaPairs = '';
+  for (let i = 0; i < qcount; i++) {
+    const qEl = container.querySelectorAll('.qa-question')[i];
+    const aEl = document.getElementById(`cl-ans-${i}`);
+    if (qEl && aEl) {
+      const q = qEl.textContent.replace(/^\d+/, '').trim();
+      const a = aEl.value.trim() || '(not provided)';
+      qaPairs += `Q: ${q}\nA: ${a}\n\n`;
+    }
+  }
+
+  try {
+    const prompt = `${CL_TASK_SYSTEM}
+
+Build a complete step-by-step checklist for this SWS task. Each item should be a concrete, actionable step — not vague.
+
+TASK:
+${task}
+${sop ? `\nPROCESS DOCS / SOPs:\n${sop}\n` : ''}
+${qaPairs ? `\nCLARIFYING ANSWERS:\n${qaPairs}` : ''}
+
+Reply with ONLY the checklist items, one per line, each starting with "- ". No headers, no commentary, no markdown other than the dash. Group related steps naturally but do not label the groups. Be thorough — include communication steps, verification steps, and follow-up steps.`;
+
+    const raw = await callClaude('', prompt);
+
+    // Parse lines starting with -
+    const items = [];
+    for (const line of raw.split('\n')) {
+      const clean = line.replace(/^[-•*]\s*/, '').trim();
+      if (clean.length > 3) items.push(clean);
+    }
+    if (items.length === 0) throw new Error('Could not parse checklist. Please try again.');
+
+    // Build state
+    clItems = items.map(text => ({ id: clItemId++, text, done: false }));
+
+    // Render
+    document.getElementById('cl-checklist-title').textContent = 'Task Checklist';
+    document.getElementById('cl-checklist-subtitle').textContent = task.length > 80 ? task.substring(0, 80) + '…' : task;
+    clRenderList();
+    clUpdateProgress();
+
+    document.getElementById('cl-step2').style.display = 'none';
+    document.getElementById('cl-step3').style.display = 'block';
+    clSetStep(3);
+  } catch (err) {
+    errorEl.textContent = err.message || 'Could not generate checklist. Please try again.';
+    errorEl.classList.add('visible');
+  } finally {
+    btn.disabled = false; btn.classList.remove('loading'); btnText.textContent = 'Generate checklist →';
+  }
+}
+
+function clRenderList() {
+  const list = document.getElementById('cl-checklist-list');
+  list.innerHTML = '';
+  clItems.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'checklist-item' + (item.done ? ' checked' : '');
+    div.id = 'cl-item-' + item.id;
+    div.innerHTML = `
+      <input type="checkbox" ${item.done ? 'checked' : ''} onchange="clToggle(${item.id})" />
+      <span class="item-text" onclick="clToggle(${item.id})">${item.text}</span>
+      <button class="del-btn" onclick="clDelete(${item.id})" title="Remove">×</button>`;
+    list.appendChild(div);
+  });
+}
+
+function clToggle(id) {
+  const item = clItems.find(i => i.id === id);
+  if (!item) return;
+  item.done = !item.done;
+  const el = document.getElementById('cl-item-' + id);
+  if (el) {
+    el.classList.toggle('checked', item.done);
+    el.querySelector('input').checked = item.done;
+  }
+  clUpdateProgress();
+}
+
+function clDelete(id) {
+  clItems = clItems.filter(i => i.id !== id);
+  const el = document.getElementById('cl-item-' + id);
+  if (el) el.remove();
+  clUpdateProgress();
+}
+
+function clAddItem() {
+  const input = document.getElementById('cl-new-item');
+  const text = input.value.trim();
+  if (!text) return;
+  const item = { id: clItemId++, text, done: false };
+  clItems.push(item);
+  input.value = '';
+  const list = document.getElementById('cl-checklist-list');
+  const div = document.createElement('div');
+  div.className = 'checklist-item';
+  div.id = 'cl-item-' + item.id;
+  div.innerHTML = `
+    <input type="checkbox" onchange="clToggle(${item.id})" />
+    <span class="item-text" onclick="clToggle(${item.id})">${text}</span>
+    <button class="del-btn" onclick="clDelete(${item.id})" title="Remove">×</button>`;
+  list.appendChild(div);
+  clUpdateProgress();
+}
+
+function clUpdateProgress() {
+  const total = clItems.length;
+  const done = clItems.filter(i => i.done).length;
+  const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+  document.getElementById('cl-progress-text').textContent = `${done} / ${total} done`;
+  const fill = document.getElementById('cl-progress-fill');
+  fill.style.width = pct + '%';
+  fill.classList.toggle('done', pct === 100 && total > 0);
+}
+
+function clCheckAll()   { clItems.forEach(i => { i.done = true; }); clRenderList(); clUpdateProgress(); }
+function clUncheckAll() { clItems.forEach(i => { i.done = false; }); clRenderList(); clUpdateProgress(); }
+
+function clCopyChecklist() {
+  const lines = clItems.map(i => (i.done ? '[x]' : '[ ]') + ' ' + i.text).join('\n');
+  navigator.clipboard.writeText(lines).then(() => {
+    const btn = event.target;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy as text', 1500);
+  });
+}
+
+function clReset() {
+  clItems = [];
+  document.getElementById('cl-taskDesc').value = '';
+  document.getElementById('cl-sopDocs').value = '';
+  document.getElementById('cl-qa-blocks').innerHTML = '';
+  document.getElementById('cl-step1-error').classList.remove('visible');
+  document.getElementById('cl-step2-error').classList.remove('visible');
+  document.getElementById('cl-step1').style.display = 'block';
+  document.getElementById('cl-step2').style.display = 'none';
+  document.getElementById('cl-step3').style.display = 'none';
+  clSetStep(1);
+}
+
+function clSetStep(n) {
+  [1,2,3].forEach(i => {
+    const el = document.getElementById(`step${i}-indicator`);
+    el.classList.remove('active','done');
+    if (i < n) el.classList.add('done');
+    else if (i === n) el.classList.add('active');
+    if (i < 3) {
+      const line = document.getElementById(`line${i}`);
+      line.classList.toggle('done', i < n);
+    }
+  });
+}
+
+// ── Rephrase ──────────────────────────────────────
+const REPHRASE_TAGS = [
+  { key: 'PROFESSIONAL', label: 'Professional', cls: 'tag-professional' },
+  { key: 'CONCISE',      label: 'Concise',      cls: 'tag-concise'      },
+  { key: 'FRIENDLY',     label: 'Friendly',     cls: 'tag-friendly'     },
+  { key: 'DIRECT',       label: 'Direct',       cls: 'tag-direct'       },
+];
+
+async function runRephrase() {
+  const input = document.getElementById('rephrase-input').value.trim();
+  if (!input) return;
+  const btn = document.getElementById('rephraseBtn');
+  const btnText = document.getElementById('rephraseBtnText');
+  const errorEl = document.getElementById('rephrase-error');
+  const optionsEl = document.getElementById('rephrase-options');
+  btn.disabled = true; btn.classList.add('loading'); btnText.textContent = 'Rephrasing…';
+  errorEl.classList.remove('visible'); optionsEl.style.display = 'none';
+
+  try {
+    const prompt = `You are helping a Stanford UIT Web Services support agent rephrase text for professional use. Rephrase the following text in 4 different ways. Use EXACTLY these labels, one per line, with the rephrased text on the next line:
+
+PROFESSIONAL:
+[polished, formal tone suitable for a professional email or ticket]
+
+CONCISE:
+[shorter version that says the same thing with fewer words]
+
+FRIENDLY:
+[warm, approachable tone while still being professional]
+
+DIRECT:
+[straight to the point, no filler words, action-oriented]
+
+Text to rephrase:
+"""
+${input}
+"""`;
+
+    const raw = await callClaude('', prompt);
+
+    // Parse each labeled section
+    optionsEl.innerHTML = '';
+    REPHRASE_TAGS.forEach(({ key, label, cls }) => {
+      const re = new RegExp(key + ':\\s*\\n([\\s\\S]*?)(?=\\n[A-Z]+:|$)', 'i');
+      const m = raw.match(re);
+      const text = m ? m[1].trim() : null;
+      if (!text) return;
+      const div = document.createElement('div');
+      div.className = 'rephrase-option';
+      div.innerHTML = `
+        <span class="rephrase-tag ${cls}">${label}</span>
+        <span class="rephrase-text">${text}</span>
+        <button class="rephrase-copy" onclick="rpCopy(this, \`${text.replace(/`/g, '\\`')}\`)">Copy</button>`;
+      optionsEl.appendChild(div);
+    });
+
+    if (optionsEl.children.length === 0) throw new Error('Could not parse rephrase options. Please try again.');
+    optionsEl.style.display = 'flex';
+  } catch (err) {
+    errorEl.textContent = err.message || 'Could not rephrase. Please try again.';
+    errorEl.classList.add('visible');
+  } finally {
+    btn.disabled = false; btn.classList.remove('loading'); btnText.textContent = '✏️ Rephrase';
+  }
+}
+
+function rpCopy(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  });
+}
+
+function clearRephrase() {
+  document.getElementById('rephrase-input').value = '';
+  document.getElementById('rephrase-options').style.display = 'none';
+  document.getElementById('rephrase-error').classList.remove('visible');
+}
+</script>
+</body>
+</html>
